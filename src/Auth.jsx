@@ -39,7 +39,7 @@ export default function Auth() {
       <div className="auth-card">
         <div className="auth-brand">
           <Landmark size={22} />
-          <span>Libro Mayor</span>
+          <span>ContaSoft Nube</span>
         </div>
         <p className="auth-sub">{mode === "login" ? "Ingresa a tu contabilidad" : "Crea tu cuenta gratis"}</p>
 

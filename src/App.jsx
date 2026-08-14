@@ -933,7 +933,7 @@ export default function App() {
         <div className="brand">
           <Landmark size={20} />
           <div>
-            <div className="brand-title">Libro Mayor</div>
+            <div className="brand-title">ContaSoft Nube</div>
             <div className="brand-sub">{settings.companyName}</div>
           </div>
         </div>

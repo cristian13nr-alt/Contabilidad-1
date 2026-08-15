@@ -38,7 +38,7 @@ export default function Auth() {
       <style>{AUTH_CSS}</style>
       <div className="auth-card">
         <div className="auth-brand">
-          <Landmark size={22} />
+          <svg width={26} height={26} viewBox="0 0 140 140"><rect width="140" height="140" rx="28" fill="#123C39"/><rect x="35" y="78" width="72" height="24" rx="12" fill="#FFFFFF"/><circle cx="50" cy="72" r="18" fill="#FFFFFF"/><circle cx="73" cy="60" r="23" fill="#FFFFFF"/><circle cx="97" cy="73" r="17" fill="#FFFFFF"/><path d="M53 76 L66 88 L91 60" fill="none" stroke="#0F8F73" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round"/></svg>
           <span>ContaSoft Nube</span>
         </div>
         <p className="auth-sub">{mode === "login" ? "Ingresa a tu contabilidad" : "Crea tu cuenta gratis"}</p>

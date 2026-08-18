@@ -10,7 +10,7 @@ import {
   getOrCreateCompany, updateCompany,
   fetchAccounts, insertAccount, deleteAccount,
   fetchEntries, insertEntry,
-  fetchInvoices, insertInvoice, markInvoicePosted,
+  fetchInvoices, insertInvoice, markInvoicePosted, fetchVoucherTypes, insertVoucherType, deleteVoucherType,
 } from "./lib/db";
 
 /* ───────────────────────── Datos base (plan de cuentas de referencia) ───────────────────────── */
@@ -830,7 +830,7 @@ export default function App() {
   const [company, setCompany] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [entries, setEntries] = useState([]);
-  const [invoices, setInvoices] = useState([]);
+  const [invoices, setInvoices] = useState([]);   const [voucherTypes, setVoucherTypes] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [dataError, setDataError] = useState("");
   const [tab, setTab] = useState("dashboard");
@@ -842,10 +842,10 @@ export default function App() {
   }, []);
 
   const reloadAll = async (companyId) => {
-    const [acc, ent, inv] = await Promise.all([
-      fetchAccounts(companyId), fetchEntries(companyId), fetchInvoices(companyId),
+    const [acc, ent, inv, vt] = await Promise.all([
+      fetchAccounts(companyId), fetchEntries(companyId), fetchInvoices(companyId), fetchVoucherTypes(companyId),
     ]);
-    setAccounts(acc); setEntries(ent); setInvoices(inv);
+    setAccounts(acc); setEntries(ent); setInvoices(inv); setVoucherTypes(vt);
   };
 
   const loadEverything = async () => {
@@ -886,6 +886,15 @@ export default function App() {
 
   const handleRemoveAccount = async (code) => {
     await deleteAccount(company.id, code);
+    await reloadAll(company.id);
+  };
+    const handleAddVoucherType = async (type) => {
+    await insertVoucherType(company.id, type);
+    await reloadAll(company.id);
+  };
+
+  const handleRemoveVoucherType = async (id) => {
+    await deleteVoucherType(company.id, id);
     await reloadAll(company.id);
   };
 

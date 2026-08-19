@@ -284,13 +284,21 @@ function ChartOfAccounts({ accounts, entries, onAdd, onRemove }) {
 
 function emptyLine() { return { id: uid(), accountCode: "", debit: "", credit: "" }; }
 
-function JournalEntries({ accounts, entries, onSubmit }) {
+function emptyLine() { return { id: uid(), accountCode: "", debit: "", credit: "" }; }
+
+function JournalEntries({ accounts, entries, voucherTypes, onSubmit }) {
   const [date, setDate] = useState(todayISO());
+  const [voucherTypeId, setVoucherTypeId] = useState("");
   const [description, setDescription] = useState("");
   const [lines, setLines] = useState([emptyLine(), emptyLine()]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [expanded, setExpanded] = useState(null);
+  const [filterType, setFilterType] = useState("all");
+
+  useEffect(() => {
+    if (!voucherTypeId && voucherTypes.length) setVoucherTypeId(voucherTypes[0].id);
+  }, [voucherTypes, voucherTypeId]);
 
   const totalDebit = lines.reduce((s, l) => s + (parseFloat(l.debit) || 0), 0);
   const totalCredit = lines.reduce((s, l) => s + (parseFloat(l.credit) || 0), 0);
@@ -302,12 +310,14 @@ function JournalEntries({ accounts, entries, onSubmit }) {
 
   const submit = async () => {
     setError("");
+    if (!voucherTypeId) return setError("Selecciona un tipo de comprobante (créalos en Ajustes si no ves ninguno).");
     if (!description.trim()) return setError("Describe el comprobante.");
     if (lines.some((l) => !l.accountCode)) return setError("Selecciona una cuenta en cada línea.");
     if (!balanced) return setError("El comprobante no cuadra: Debe y Haber deben ser iguales y mayores a cero.");
     setBusy(true);
     try {
       await onSubmit({
+        voucherTypeId,
         date,
         description: description.trim(),
         lines: lines.map((l) => ({ accountCode: l.accountCode, debit: parseFloat(l.debit) || 0, credit: parseFloat(l.credit) || 0 })),
@@ -326,10 +336,21 @@ function JournalEntries({ accounts, entries, onSubmit }) {
     return a ? `${a.code} · ${a.name}` : code;
   };
 
+  const entryLabel = (e) => {
+    const prefix = e.voucherTypePrefix || "CO";
+    return `${prefix}-${String(e.number).padStart(4, "0")}`;
+  };
+
+  const filteredEntries = filterType === "all" ? entries : entries.filter((e) => e.voucherTypeId === filterType);
+
   return (
     <div className="stack-lg">
-      <Card title="Nuevo comprobante contable">
+      <Card title="Nuevo comprobante contable" right={voucherTypes.length === 0 ? <span className="hint-text">Crea tipos de comprobante en Ajustes</span> : null}>
         <div className="form-row">
+          <select className="input input-sm" value={voucherTypeId} onChange={(e) => setVoucherTypeId(e.target.value)}>
+            <option value="">Tipo de comprobante…</option>
+            {voucherTypes.map((t) => <option key={t.id} value={t.id}>{t.prefix} · {t.name}</option>)}
+          </select>
           <input type="date" className="input input-sm" value={date} onChange={(e) => setDate(e.target.value)} />
           <input className="input" placeholder="Descripción (ej. Pago de arriendo agosto)" value={description}
             onChange={(e) => setDescription(e.target.value)} />
@@ -376,15 +397,23 @@ function JournalEntries({ accounts, entries, onSubmit }) {
         {error && <p className="error-text"><AlertTriangle size={14} /> {error}</p>}
       </Card>
 
-      <Card title="Comprobantes registrados">
-        {entries.length === 0 ? (
+      <Card
+        title="Comprobantes registrados"
+        right={
+          <select className="input input-sm" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+            <option value="all">Todos los tipos</option>
+            {voucherTypes.map((t) => <option key={t.id} value={t.id}>{t.prefix} · {t.name}</option>)}
+          </select>
+        }
+      >
+        {filteredEntries.length === 0 ? (
           <EmptyState icon={ScrollText} title="Sin comprobantes todavía" hint="El primer asiento que registres aparecerá aquí." />
         ) : (
           <div className="entries-list">
-            {[...entries].reverse().map((e) => (
+            {[...filteredEntries].reverse().map((e) => (
               <div className="entry-item" key={e.id}>
                 <button className="entry-item-head" onClick={() => setExpanded(expanded === e.id ? null : e.id)}>
-                  <span className="mono entry-no">#{String(e.number).padStart(4, "0")}</span>
+                  <span className="mono entry-no">{entryLabel(e)}</span>
                   <span className="entry-date">{fmtDate(e.date)}</span>
                   <span className="entry-desc">{e.description}</span>
                   <span className="mono entry-total">{fmtCOP(e.lines.reduce((s, l) => s + l.debit, 0))}</span>
@@ -750,7 +779,7 @@ function Invoicing({ entries, invoices, settings, onCreateInvoice, onPostInvoice
 
 /* ───────────────────────── Ajustes ───────────────────────── */
 
-function SettingsPanel({ settings, onUpdate }) {
+function SettingsPanel({ settings, onUpdate, voucherTypes, onAddVoucherType, onRemoveVoucherType }) {
   const [local, setLocal] = useState(settings);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -773,18 +802,81 @@ function SettingsPanel({ settings, onUpdate }) {
     }
   };
 
+  const [typeForm, setTypeForm] = useState({ name: "", prefix: "" });
+  const [typeError, setTypeError] = useState("");
+  const [typeBusy, setTypeBusy] = useState(false);
+
+  const addType = async () => {
+    setTypeError("");
+    if (!typeForm.name.trim()) return setTypeError("Escribe un nombre para el tipo de comprobante.");
+    if (!/^[A-Za-z0-9]{1,6}$/.test(typeForm.prefix)) return setTypeError("El prefijo debe tener entre 1 y 6 letras o números (ej. CI, GTO).");
+    if (voucherTypes.some((t) => t.prefix.toLowerCase() === typeForm.prefix.toLowerCase())) return setTypeError("Ya existe un tipo con ese prefijo.");
+    setTypeBusy(true);
+    try {
+      await onAddVoucherType({ name: typeForm.name.trim(), prefix: typeForm.prefix.toUpperCase() });
+      setTypeForm({ name: "", prefix: "" });
+    } catch (e) {
+      setTypeError(e.message || "No se pudo crear el tipo de comprobante.");
+    } finally {
+      setTypeBusy(false);
+    }
+  };
+
+  const removeType = async (id) => {
+    setTypeError("");
+    try {
+      await onRemoveVoucherType(id);
+    } catch (e) {
+      setTypeError(e.message || "No se pudo eliminar (puede tener comprobantes asociados).");
+    }
+  };
+
   return (
-    <Card title="Datos de la empresa">
-      <div className="form-row-stack">
-        <label>Razón social<input className="input" value={local.companyName} onChange={(e) => setLocal({ ...local, companyName: e.target.value })} /></label>
-        <label>NIT<input className="input" value={local.nit} onChange={(e) => setLocal({ ...local, nit: e.target.value })} /></label>
-        <label>Ciudad<input className="input" value={local.city} onChange={(e) => setLocal({ ...local, city: e.target.value })} /></label>
-        <label>Tarifa de IVA (%)<input className="input" type="number" value={local.ivaRate} onChange={(e) => setLocal({ ...local, ivaRate: parseFloat(e.target.value) || 0 })} /></label>
-        <button className="btn btn-primary" onClick={save} disabled={busy} style={{ alignSelf: "flex-start" }}>
-          {busy ? <Loader2 size={16} className="spin" /> : saved ? <><Check size={16} /> Guardado</> : "Guardar cambios"}
-        </button>
-      </div>
-    </Card>
+    <div className="stack-lg">
+      <Card title="Datos de la empresa">
+        <div className="form-row-stack">
+          <label>Razón social<input className="input" value={local.companyName} onChange={(e) => setLocal({ ...local, companyName: e.target.value })} /></label>
+          <label>NIT<input className="input" value={local.nit} onChange={(e) => setLocal({ ...local, nit: e.target.value })} /></label>
+          <label>Ciudad<input className="input" value={local.city} onChange={(e) => setLocal({ ...local, city: e.target.value })} /></label>
+          <label>Tarifa de IVA (%)<input className="input" type="number" value={local.ivaRate} onChange={(e) => setLocal({ ...local, ivaRate: parseFloat(e.target.value) || 0 })} /></label>
+          <button className="btn btn-primary" onClick={save} disabled={busy} style={{ alignSelf: "flex-start" }}>
+            {busy ? <Loader2 size={16} className="spin" /> : saved ? <><Check size={16} /> Guardado</> : "Guardar cambios"}
+          </button>
+        </div>
+      </Card>
+
+      <Card title="Tipos de comprobante contable" right={<span className="hint-text">Tú decides cuáles usar</span>}>
+        <div className="form-row">
+          <input className="input" placeholder="Nombre (ej. Comprobante de nómina)" value={typeForm.name}
+            onChange={(e) => setTypeForm({ ...typeForm, name: e.target.value })} />
+          <input className="input input-sm" placeholder="Prefijo (ej. CN)" value={typeForm.prefix} maxLength={6}
+            onChange={(e) => setTypeForm({ ...typeForm, prefix: e.target.value.toUpperCase() })} />
+          <button className="btn btn-primary" onClick={addType} disabled={typeBusy}>
+            {typeBusy ? <Loader2 size={16} className="spin" /> : <Plus size={16} />} Agregar
+          </button>
+        </div>
+        {typeError && <p className="error-text"><AlertTriangle size={14} /> {typeError}</p>}
+        <table className="ledger-table">
+          <thead><tr><th>Prefijo</th><th>Nombre</th><th></th></tr></thead>
+          <tbody>
+            {voucherTypes.map((t) => (
+              <tr key={t.id}>
+                <td className="mono">{t.prefix}</td>
+                <td>{t.name}</td>
+                <td className="text-right">
+                  <button className="icon-btn" title="Eliminar" onClick={() => removeType(t.id)}>
+                    <Trash2 size={14} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {voucherTypes.length === 0 && (
+              <tr><td colSpan={3}><EmptyState icon={ScrollText} title="Aún no tienes tipos de comprobante" /></td></tr>
+            )}
+          </tbody>
+        </table>
+      </Card>
+    </div>
   );
 }
 
@@ -899,7 +991,8 @@ export default function App() {
   };
 
   const handleAddEntry = async (draft) => {
-    const number = entries.length ? Math.max(...entries.map((e) => e.number)) + 1 : 1;
+        const sameType = entries.filter((e) => e.voucherTypeId === draft.voucherTypeId);
+    const number = sameType.length ? Math.max(...sameType.map((e) => e.number)) + 1 : 1;
     await insertEntry(company.id, { ...draft, number });
     await reloadAll(company.id);
   };
@@ -911,7 +1004,9 @@ export default function App() {
   };
 
   const handlePostInvoice = async (invoice) => {
-    const number = entries.length ? Math.max(...entries.map((e) => e.number)) + 1 : 1;
+    const ingresoType = voucherTypes.find((t) => t.prefix === "CI") || voucherTypes[0];
+    const sameType = entries.filter((e) => e.voucherTypeId === ingresoType?.id);
+    const number = sameType.length ? Math.max(...sameType.map((e) => e.number)) + 1 : 1;
     const debitAccount = invoice.paymentType === "contado" ? "1105" : "1305";
     const lines = [
       { accountCode: debitAccount, debit: invoice.total, credit: 0 },
@@ -919,7 +1014,7 @@ export default function App() {
       ...(invoice.iva > 0 ? [{ accountCode: "2408", debit: 0, credit: invoice.iva }] : []),
     ];
     const entryId = await insertEntry(company.id, {
-      number, date: invoice.date,
+      number, voucherTypeId: ingresoType?.id, date: invoice.date,
       description: `Factura de venta N.º ${invoice.number} — ${invoice.client.name}`,
       lines,
     });
@@ -969,14 +1064,22 @@ export default function App() {
           {tab === "accounts" && (
             <ChartOfAccounts accounts={accounts} entries={entries} onAdd={handleAddAccount} onRemove={handleRemoveAccount} />
           )}
-          {tab === "entries" && <JournalEntries accounts={accounts} entries={entries} onSubmit={handleAddEntry} />}
+          {tab === "entries" && <JournalEntries accounts={accounts} entries={entries} voucherTypes={voucherTypes} onSubmit={handleAddEntry} />}
           {tab === "ledger" && <Ledger accounts={accounts} entries={entries} />}
           {tab === "trial" && <TrialBalance accounts={accounts} entries={entries} />}
           {tab === "statements" && <FinancialStatements accounts={accounts} entries={entries} />}
           {tab === "invoicing" && (
             <Invoicing entries={entries} invoices={invoices} settings={settings} onCreateInvoice={handleCreateInvoice} onPostInvoice={handlePostInvoice} />
           )}
-          {tab === "settings" && <SettingsPanel settings={settings} onUpdate={handleUpdateSettings} />}
+          {tab === "settings" && (
+            <SettingsPanel
+              settings={settings}
+              onUpdate={handleUpdateSettings}
+              voucherTypes={voucherTypes}
+              onAddVoucherType={handleAddVoucherType}
+              onRemoveVoucherType={handleRemoveVoucherType}
+            />
+          )}
         </div>
       </main>
     </div>
@@ -1094,7 +1197,7 @@ const CSS = `
 /* Journal entries list */
 .entries-list{ display:flex; flex-direction:column; gap:6px; }
 .entry-item{ border:1px solid var(--rule); border-radius:8px; overflow:hidden; }
-.entry-item-head{ display:grid; grid-template-columns:60px 80px 1fr 120px 20px; gap:10px; align-items:center; width:100%; background:transparent; border:none; padding:10px 12px; font-family:'Inter',sans-serif; font-size:12.5px; cursor:pointer; text-align:left; }
+.entry-item-head{ display:grid; grid-template-columns:74px 80px 1fr 120px 20px; gap:10px; align-items:center; width:100%; background:transparent; border:none; padding:10px 12px; font-family:'Inter',sans-serif; font-size:12.5px; cursor:pointer; text-align:left; }
 .entry-item-head:hover{ background:#FBF9F1; }
 .entry-no{ color:var(--gold); font-weight:700; }
 .entry-date{ color:var(--ink-soft); }

@@ -284,8 +284,6 @@ function ChartOfAccounts({ accounts, entries, onAdd, onRemove }) {
 
 function emptyLine() { return { id: uid(), accountCode: "", debit: "", credit: "" }; }
 
-function emptyLine() { return { id: uid(), accountCode: "", debit: "", credit: "" }; }
-
 function JournalEntries({ accounts, entries, voucherTypes, onSubmit }) {
   const [date, setDate] = useState(todayISO());
   const [voucherTypeId, setVoucherTypeId] = useState("");

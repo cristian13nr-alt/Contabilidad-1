@@ -1,7 +1,5 @@
 import { supabase } from "./supabaseClient";
 
-/* Cada función aquí hace UNA cosa contra Supabase. App.jsx las combina. */
-
 export async function getOrCreateCompany(userId) {
   const { data: existing, error: selErr } = await supabase
     .from("companies")
@@ -52,10 +50,34 @@ export async function deleteAccount(companyId, code) {
   if (error) throw error;
 }
 
+export async function fetchVoucherTypes(companyId) {
+  const { data, error } = await supabase
+    .from("voucher_types")
+    .select("id, name, prefix")
+    .eq("company_id", companyId)
+    .order("prefix");
+  if (error) throw error;
+  return data;
+}
+
+export async function insertVoucherType(companyId, type) {
+  const { error } = await supabase.from("voucher_types").insert({
+    company_id: companyId,
+    name: type.name,
+    prefix: type.prefix,
+  });
+  if (error) throw error;
+}
+
+export async function deleteVoucherType(companyId, id) {
+  const { error } = await supabase.from("voucher_types").delete().eq("company_id", companyId).eq("id", id);
+  if (error) throw error;
+}
+
 export async function fetchEntries(companyId) {
   const { data, error } = await supabase
     .from("journal_entries")
-    .select("id, number, date, description, journal_lines(account_code, debit, credit)")
+    .select("id, number, date, description, voucher_type_id, voucher_types(name, prefix), journal_lines(account_code, debit, credit)")
     .eq("company_id", companyId)
     .order("number");
   if (error) throw error;
@@ -64,6 +86,9 @@ export async function fetchEntries(companyId) {
     number: e.number,
     date: e.date,
     description: e.description,
+    voucherTypeId: e.voucher_type_id,
+    voucherTypeName: e.voucher_types ? e.voucher_types.name : null,
+    voucherTypePrefix: e.voucher_types ? e.voucher_types.prefix : null,
     lines: (e.journal_lines || []).map((l) => ({
       accountCode: l.account_code,
       debit: Number(l.debit) || 0,
@@ -75,7 +100,13 @@ export async function fetchEntries(companyId) {
 export async function insertEntry(companyId, entry) {
   const { data: created, error } = await supabase
     .from("journal_entries")
-    .insert({ company_id: companyId, number: entry.number, date: entry.date, description: entry.description })
+    .insert({
+      company_id: companyId,
+      number: entry.number,
+      date: entry.date,
+      description: entry.description,
+      voucher_type_id: entry.voucherTypeId || null,
+    })
     .select()
     .single();
   if (error) throw error;
@@ -95,7 +126,7 @@ export async function fetchInvoices(companyId) {
   const { data, error } = await supabase
     .from("invoices")
     .select(
-      "id, number, date, client_name, client_nit, payment_type, subtotal, iva, total, status, journal_entry_id, invoice_items(description, qty, price)"
+      "id, number, date, client_name, client_nit, payment_type, subtotal, iva, retencion_rate, retencion_value, total, status, journal_entry_id, invoice_items(description, qty, price)"
     )
     .eq("company_id", companyId)
     .order("number");
@@ -113,6 +144,8 @@ export async function fetchInvoices(companyId) {
     })),
     subtotal: Number(i.subtotal),
     iva: Number(i.iva),
+    retencionRate: Number(i.retencion_rate) || 0,
+    retencionValue: Number(i.retencion_value) || 0,
     total: Number(i.total),
     status: i.status,
     journalEntryId: i.journal_entry_id,
@@ -131,6 +164,8 @@ export async function insertInvoice(companyId, invoice) {
       payment_type: invoice.paymentType,
       subtotal: invoice.subtotal,
       iva: invoice.iva,
+      retencion_rate: invoice.retencionRate || 0,
+      retencion_value: invoice.retencionValue || 0,
       total: invoice.total,
       status: "borrador",
     })

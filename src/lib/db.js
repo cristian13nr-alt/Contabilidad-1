@@ -74,6 +74,32 @@ export async function deleteVoucherType(companyId, id) {
   if (error) throw error;
 }
 
+export async function fetchThirdParties(companyId) {
+  const { data, error } = await supabase
+    .from("third_parties")
+    .select("id, name, nit, type, email, phone")
+    .eq("company_id", companyId)
+    .order("name");
+  if (error) throw error;
+  return data;
+}
+
+export async function insertThirdParty(companyId, tp) {
+  const { error } = await supabase.from("third_parties").insert({
+    company_id: companyId,
+    name: tp.name,
+    nit: tp.nit,
+    type: tp.type,
+    email: tp.email || null,
+    phone: tp.phone || null,
+  });
+  if (error) throw error;
+}
+
+export async function deleteThirdParty(companyId, id) {
+  const { error } = await supabase.from("third_parties").delete().eq("company_id", companyId).eq("id", id);
+  if (error) throw error;
+}
 export async function fetchEntries(companyId) {
   const { data, error } = await supabase
     .from("journal_entries")

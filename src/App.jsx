@@ -905,22 +905,24 @@ function ErrorScreen({ message, onRetry }) {
 /* ───────────────────────── App raíz ───────────────────────── */
 
 const TABS = [
-  { id: "dashboard", label: "Resumen", icon: LayoutDashboard },
-  { id: "accounts", label: "Plan de cuentas", icon: Landmark },
-  { id: "entries", label: "Comprobantes", icon: ScrollText },
-  { id: "ledger", label: "Libro mayor", icon: BookOpen },
-  { id: "trial", label: "Balance de prueba", icon: Scale },
-  { id: "statements", label: "Estados financieros", icon: FileText },
-  { id: "invoicing", label: "Facturación", icon: Receipt },
-  { id: "settings", label: "Ajustes", icon: Settings2 },
+  { id: "dashboard", label: "Resumen", icon: LayoutDashboard, group: "Inicio" },
+  { id: "invoicing", label: "Facturación", icon: Receipt, group: "Ventas" },
+  { id: "accounts", label: "Plan de cuentas", icon: Landmark, group: "Contabilidad" },
+  { id: "entries", label: "Comprobantes", icon: ScrollText, group: "Contabilidad" },
+  { id: "ledger", label: "Libro mayor", icon: BookOpen, group: "Contabilidad" },
+  { id: "trial", label: "Balance de prueba", icon: Scale, group: "Contabilidad" },
+  { id: "statements", label: "Estados financieros", icon: FileText, group: "Contabilidad" },
+  { id: "settings", label: "Ajustes", icon: Settings2, group: "Configuración" },
 ];
+
+const GROUPS = ["Inicio", "Ventas", "Contabilidad", "Configuración"];
 
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = todavía no se sabe
   const [company, setCompany] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [entries, setEntries] = useState([]);
-  const [invoices, setInvoices] = useState([]);   const [voucherTypes, setVoucherTypes] = useState([]);
+  const [invoices, setInvoices] = useState([]);   const [voucherTypes, setVoucherTypes] = useState([]);  const [createOpen, setCreateOpen] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
   const [dataError, setDataError] = useState("");
   const [tab, setTab] = useState("dashboard");
@@ -1040,11 +1042,16 @@ export default function App() {
           </div>
         </div>
         <nav className="tabs">
-          {TABS.map((t) => (
-            <button key={t.id} className={`tab-btn ${tab === t.id ? "tab-active" : ""}`} onClick={() => setTab(t.id)}>
-              <t.icon size={16} />
-              {t.label}
-            </button>
+          {GROUPS.map((g) => (
+            <div className="tab-group" key={g}>
+              <div className="tab-group-label">{g}</div>
+              {TABS.filter((t) => t.group === g).map((t) => (
+                <button key={t.id} className={`tab-btn ${tab === t.id ? "tab-active" : ""}`} onClick={() => setTab(t.id)}>
+                  <t.icon size={16} />
+                  {t.label}
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
         <button className="tab-btn logout-btn" onClick={() => supabase.auth.signOut()}>
@@ -1055,7 +1062,27 @@ export default function App() {
       <main className="main">
         <header className="topbar no-print">
           <div className="topbar-title"><ActiveIcon size={18} /> {TABS.find((t) => t.id === tab)?.label}</div>
-          <div className="topbar-date">{fmtDate(todayISO())}</div>
+          <div className="topbar-right">
+            <div className="create-wrap">
+              {createOpen && <div className="create-backdrop" onClick={() => setCreateOpen(false)} />}
+              <button className="btn btn-primary btn-sm" onClick={() => setCreateOpen((o) => !o)}>
+                <Plus size={14} /> Crear
+              </button>
+              {createOpen && (
+                <div className="create-menu">
+                  <div className="create-menu-label">Ventas</div>
+                  <button className="create-menu-item" onClick={() => { setTab("invoicing"); setCreateOpen(false); }}>
+                    <Receipt size={14} /> Factura de venta
+                  </button>
+                  <div className="create-menu-label">Contabilidad</div>
+                  <button className="create-menu-item" onClick={() => { setTab("entries"); setCreateOpen(false); }}>
+                    <ScrollText size={14} /> Comprobante contable
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="topbar-date">{fmtDate(todayISO())}</div>
+          </div>
         </header>
         <div className="content no-print">
           {tab === "dashboard" && <Dashboard accounts={accounts} entries={entries} invoices={invoices} />}
@@ -1219,6 +1246,15 @@ const CSS = `
 .badge{ font-family:'Inter',sans-serif; font-size:11px; padding:3px 9px; border-radius:20px; font-weight:600; }
 .badge-green{ background:var(--green-soft); color:var(--green); }
 .badge-gray{ background:#EDE7D6; color:var(--ink-soft); }
+.tab-group{ margin-bottom:10px; }
+.tab-group-label{ font-family:'Inter',sans-serif; font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft); padding:6px 10px 4px; }
+.topbar-right{ display:flex; align-items:center; gap:14px; }
+.create-wrap{ position:relative; }
+.create-backdrop{ position:fixed; inset:0; z-index:40; }
+.create-menu{ position:absolute; top:calc(100% + 6px); right:0; background:var(--paper-raised); border:1px solid var(--rule); border-radius:8px; box-shadow:var(--shadow); padding:6px; min-width:200px; z-index:41; }
+.create-menu-label{ font-family:'Inter',sans-serif; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); padding:6px 8px 2px; }
+.create-menu-item{ display:flex; align-items:center; gap:8px; width:100%; padding:8px; border:none; background:transparent; border-radius:6px; font-family:'Inter',sans-serif; font-size:13px; cursor:pointer; text-align:left; color:var(--ink); }
+.create-menu-item:hover{ background:#EFE9D8; }
 .row-actions{ display:flex; gap:6px; justify-content:flex-end; }
 
 /* Print sheet */

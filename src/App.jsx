@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   LayoutDashboard, BookOpen, ScrollText, Scale, FileText, Receipt,
   Plus, Trash2, Printer, X, Check, AlertTriangle, Search, Settings2,
-  Landmark, ChevronRight, Loader2, LogOut
+  Landmark, ChevronRight, Loader2, LogOut, Users
 } from "lucide-react";
 import { supabase } from "./lib/supabaseClient";
 import Auth from "./Auth";
@@ -11,6 +11,7 @@ import {
   fetchAccounts, insertAccount, deleteAccount,
   fetchEntries, insertEntry,
   fetchInvoices, insertInvoice, markInvoicePosted, fetchVoucherTypes, insertVoucherType, deleteVoucherType,
+  fetchThirdParties, insertThirdParty, deleteThirdParty,
 } from "./lib/db";
 
 /* ───────────────────────── Datos base (plan de cuentas de referencia) ───────────────────────── */

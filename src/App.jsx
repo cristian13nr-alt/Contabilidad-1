@@ -708,7 +708,7 @@ function FinancialStatements({ accounts, entries }) {
 
 function emptyItem() { return { id: uid(), desc: "", qty: 1, price: "" }; }
 
-function Invoicing({ entries, invoices, settings, onCreateInvoice, onPostInvoice }) {
+function Invoicing({ entries, invoices, settings, thirdParties, onCreateInvoice, onPostInvoice }) {
   const [client, setClient] = useState({ name: "", nit: "" });
   const [date, setDate] = useState(todayISO());
   const [paymentType, setPaymentType] = useState("credito");
@@ -771,6 +771,19 @@ function Invoicing({ entries, invoices, settings, onCreateInvoice, onPostInvoice
       </div>
 
       <Card title="Nueva factura de venta">
+                {thirdParties.length > 0 && (
+          <div className="form-row">
+            <select className="input" onChange={(e) => {
+              const tp = thirdParties.find((t) => t.id === e.target.value);
+              if (tp) setClient({ name: tp.name, nit: tp.nit });
+            }} defaultValue="">
+              <option value="">Cliente guardado…</option>
+              {thirdParties.filter((t) => t.type !== "proveedor").map((t) => (
+                <option key={t.id} value={t.id}>{t.name} · {t.nit}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="form-row">
           <input className="input" placeholder="Nombre o razón social del cliente" value={client.name}
             onChange={(e) => setClient({ ...client, name: e.target.value })} />

@@ -280,7 +280,116 @@ function ChartOfAccounts({ accounts, entries, onAdd, onRemove }) {
     </div>
   );
 }
+/* ───────────────────────── Terceros (Clientes y Proveedores) ───────────────────────── */
 
+function emptyThirdPartyForm() { return { name: "", nit: "", type: "cliente", email: "", phone: "" }; }
+
+function ThirdParties({ thirdParties, onAdd, onRemove }) {
+  const [form, setForm] = useState(emptyThirdPartyForm());
+  const [query, setQuery] = useState("");
+  const [filterType, setFilterType] = useState("all");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const filtered = thirdParties.filter((t) => {
+    const matchesType = filterType === "all" || t.type === filterType || t.type === "ambos";
+    const matchesQuery = t.name.toLowerCase().includes(query.toLowerCase()) || t.nit.includes(query);
+    return matchesType && matchesQuery;
+  });
+
+  const add = async () => {
+    setError("");
+    if (!form.name.trim()) return setError("Escribe un nombre o razón social.");
+    if (!form.nit.trim()) return setError("Escribe el NIT o cédula.");
+    setBusy(true);
+    try {
+      await onAdd({ name: form.name.trim(), nit: form.nit.trim(), type: form.type, email: form.email.trim(), phone: form.phone.trim() });
+      setForm(emptyThirdPartyForm());
+    } catch (e) {
+      setError(e.message || "No se pudo guardar.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (id) => {
+    setError("");
+    try {
+      await onRemove(id);
+    } catch (e) {
+      setError(e.message || "No se pudo eliminar (puede estar en uso).");
+    }
+  };
+
+  const typeLabel = (t) => (t === "cliente" ? "Cliente" : t === "proveedor" ? "Proveedor" : "Cliente y proveedor");
+
+  return (
+    <div className="stack-lg">
+      <Card title="Nuevo tercero">
+        <div className="form-row">
+          <input className="input" placeholder="Nombre o razón social" value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <input className="input input-sm" placeholder="NIT / Cédula" value={form.nit}
+            onChange={(e) => setForm({ ...form, nit: e.target.value })} />
+          <select className="input input-sm" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+            <option value="cliente">Cliente</option>
+            <option value="proveedor">Proveedor</option>
+            <option value="ambos">Cliente y proveedor</option>
+          </select>
+        </div>
+        <div className="form-row">
+          <input className="input" placeholder="Correo (opcional)" value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <input className="input" placeholder="Teléfono (opcional)" value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <button className="btn btn-primary" onClick={add} disabled={busy}>
+            {busy ? <Loader2 size={16} className="spin" /> : <Plus size={16} />} Agregar
+          </button>
+        </div>
+        {error && <p className="error-text"><AlertTriangle size={14} /> {error}</p>}
+      </Card>
+
+      <Card
+        title="Terceros"
+        right={
+          <div className="form-row" style={{ marginBottom: 0 }}>
+            <select className="input input-sm" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+              <option value="all">Todos</option>
+              <option value="cliente">Clientes</option>
+              <option value="proveedor">Proveedores</option>
+            </select>
+            <div className="search-box">
+              <Search size={14} />
+              <input placeholder="Buscar…" value={query} onChange={(e) => setQuery(e.target.value)} />
+            </div>
+          </div>
+        }
+      >
+        <table className="ledger-table">
+          <thead><tr><th>Nombre</th><th>NIT</th><th>Tipo</th><th>Contacto</th><th></th></tr></thead>
+          <tbody>
+            {filtered.map((t) => (
+              <tr key={t.id}>
+                <td>{t.name}</td>
+                <td className="mono">{t.nit}</td>
+                <td>{typeLabel(t.type)}</td>
+                <td>{[t.email, t.phone].filter(Boolean).join(" · ") || "—"}</td>
+                <td className="text-right">
+                  <button className="icon-btn" title="Eliminar" onClick={() => remove(t.id)}>
+                    <Trash2 size={14} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {filtered.length === 0 && (
+              <tr><td colSpan={5}><EmptyState icon={Users} title="Aún no tienes terceros registrados" /></td></tr>
+            )}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  );
+}
 /* ───────────────────────── Comprobantes / Partida doble ───────────────────────── */
 
 function emptyLine() { return { id: uid(), accountCode: "", debit: "", credit: "" }; }
@@ -908,6 +1017,7 @@ function ErrorScreen({ message, onRetry }) {
 const TABS = [
   { id: "dashboard", label: "Resumen", icon: LayoutDashboard, group: "Inicio" },
   { id: "invoicing", label: "Facturación", icon: Receipt, group: "Ventas" },
+  { id: "thirdparties", label: "Terceros", icon: Users, group: "Ventas" },
   { id: "accounts", label: "Plan de cuentas", icon: Landmark, group: "Contabilidad" },
   { id: "entries", label: "Comprobantes", icon: ScrollText, group: "Contabilidad" },
   { id: "ledger", label: "Libro mayor", icon: BookOpen, group: "Contabilidad" },
@@ -923,7 +1033,7 @@ export default function App() {
   const [company, setCompany] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [entries, setEntries] = useState([]);
-  const [invoices, setInvoices] = useState([]);   const [voucherTypes, setVoucherTypes] = useState([]);  const [createOpen, setCreateOpen] = useState(false);
+  const [invoices, setInvoices] = useState([]);   const [voucherTypes, setVoucherTypes] = useState([]); const [thirdParties, setThirdParties] = useState([]); const [createOpen, setCreateOpen] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
   const [dataError, setDataError] = useState("");
   const [tab, setTab] = useState("dashboard");
@@ -935,12 +1045,12 @@ export default function App() {
   }, []);
 
   const reloadAll = async (companyId) => {
-    const [acc, ent, inv, vt] = await Promise.all([
-      fetchAccounts(companyId), fetchEntries(companyId), fetchInvoices(companyId), fetchVoucherTypes(companyId),
+    const [acc, ent, inv, vt, tp] = await Promise.all([
+      fetchAccounts(companyId), fetchEntries(companyId), fetchInvoices(companyId), fetchVoucherTypes(companyId), fetchThirdParties(companyId),
     ]);
-    setAccounts(acc); setEntries(ent); setInvoices(inv); setVoucherTypes(vt);
+    setAccounts(acc); setEntries(ent); setInvoices(inv); setVoucherTypes(vt); setThirdParties(tp);
   };
-
+  
   const loadEverything = async () => {
     setDataLoading(true);
     setDataError("");
@@ -986,8 +1096,18 @@ export default function App() {
     await reloadAll(company.id);
   };
 
-  const handleRemoveVoucherType = async (id) => {
+    const handleRemoveVoucherType = async (id) => {
     await deleteVoucherType(company.id, id);
+    await reloadAll(company.id);
+  };
+  
+  const handleAddThirdParty = async (tp) => {
+    await insertThirdParty(company.id, tp);
+    await reloadAll(company.id);
+  };
+
+  const handleRemoveThirdParty = async (id) => {
+    await deleteThirdParty(company.id, id);
     await reloadAll(company.id);
   };
 
@@ -1094,8 +1214,11 @@ export default function App() {
           {tab === "ledger" && <Ledger accounts={accounts} entries={entries} />}
           {tab === "trial" && <TrialBalance accounts={accounts} entries={entries} />}
           {tab === "statements" && <FinancialStatements accounts={accounts} entries={entries} />}
+                    {tab === "thirdparties" && (
+            <ThirdParties thirdParties={thirdParties} onAdd={handleAddThirdParty} onRemove={handleRemoveThirdParty} />
+          )}
           {tab === "invoicing" && (
-            <Invoicing entries={entries} invoices={invoices} settings={settings} onCreateInvoice={handleCreateInvoice} onPostInvoice={handlePostInvoice} />
+            <Invoicing entries={entries} invoices={invoices} settings={settings} thirdParties={thirdParties} onCreateInvoice={handleCreateInvoice} onPostInvoice={handlePostInvoice} />
           )}
           {tab === "settings" && (
             <SettingsPanel

@@ -217,3 +217,71 @@ export async function markInvoicePosted(invoiceId, journalEntryId) {
     .eq("id", invoiceId);
   if (error) throw error;
 }
+
+export async function fetchPurchases(companyId) {
+  const { data, error } = await supabase
+    .from("purchases")
+    .select(
+      "id, number, date, provider_name, provider_nit, payment_type, expense_account, subtotal, iva, total, status, journal_entry_id, purchase_items(description, qty, price)"
+    )
+    .eq("company_id", companyId)
+    .order("number");
+  if (error) throw error;
+  return data.map((p) => ({
+    id: p.id,
+    number: p.number,
+    date: p.date,
+    provider: { name: p.provider_name, nit: p.provider_nit },
+    paymentType: p.payment_type,
+    expenseAccount: p.expense_account,
+    items: (p.purchase_items || []).map((it) => ({
+      desc: it.description,
+      qty: Number(it.qty),
+      price: Number(it.price),
+    })),
+    subtotal: Number(p.subtotal),
+    iva: Number(p.iva),
+    total: Number(p.total),
+    status: p.status,
+    journalEntryId: p.journal_entry_id,
+  }));
+}
+
+export async function insertPurchase(companyId, purchase) {
+  const { data: created, error } = await supabase
+    .from("purchases")
+    .insert({
+      company_id: companyId,
+      number: purchase.number,
+      date: purchase.date,
+      provider_name: purchase.provider.name,
+      provider_nit: purchase.provider.nit,
+      payment_type: purchase.paymentType,
+      expense_account: purchase.expenseAccount,
+      subtotal: purchase.subtotal,
+      iva: purchase.iva,
+      total: purchase.total,
+      status: "borrador",
+    })
+    .select()
+    .single();
+  if (error) throw error;
+
+  const items = purchase.items.map((it) => ({
+    purchase_id: created.id,
+    description: it.desc,
+    qty: it.qty,
+    price: it.price,
+  }));
+  const { error: itemsErr } = await supabase.from("purchase_items").insert(items);
+  if (itemsErr) throw itemsErr;
+  return created.id;
+}
+
+export async function markPurchasePosted(purchaseId, journalEntryId) {
+  const { error } = await supabase
+    .from("purchases")
+    .update({ status: "contabilizada", journal_entry_id: journalEntryId })
+    .eq("id", purchaseId);
+  if (error) throw error;
+}

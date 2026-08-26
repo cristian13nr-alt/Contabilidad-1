@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   LayoutDashboard, BookOpen, ScrollText, Scale, FileText, Receipt,
   Plus, Trash2, Printer, X, Check, AlertTriangle, Search, Settings2,
-  Landmark, ChevronRight, Loader2, LogOut, Users
+  Landmark, ChevronRight, Loader2, LogOut, Users, ShoppingBag
 } from "lucide-react";
 import { supabase } from "./lib/supabaseClient";
 import Auth from "./Auth";
@@ -12,6 +12,7 @@ import {
   fetchEntries, insertEntry,
   fetchInvoices, insertInvoice, markInvoicePosted, fetchVoucherTypes, insertVoucherType, deleteVoucherType,
   fetchThirdParties, insertThirdParty, deleteThirdParty,
+  fetchPurchases, insertPurchase, markPurchasePosted,
 } from "./lib/db";
 
 /* ───────────────────────── Datos base (plan de cuentas de referencia) ───────────────────────── */
@@ -897,7 +898,158 @@ function Invoicing({ entries, invoices, settings, thirdParties, onCreateInvoice,
     </div>
   );
 }
+/* ───────────────────────── Compras y gastos ───────────────────────── */
 
+function emptyPurchaseItem() { return { id: uid(), desc: "", qty: 1, price: "" }; }
+
+function Purchases({ accounts, thirdParties, purchases, settings, onCreatePurchase, onPostPurchase }) {
+  const [provider, setProvider] = useState({ name: "", nit: "" });
+  const [date, setDate] = useState(todayISO());
+  const [paymentType, setPaymentType] = useState("credito");
+  const [expenseAccount, setExpenseAccount] = useState("");
+  const [items, setItems] = useState([emptyPurchaseItem()]);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [postingId, setPostingId] = useState(null);
+
+  const expenseAccounts = accounts.filter((a) => a.class === "5" || a.class === "6");
+
+  const updateItem = (id, patch) => setItems(items.map((it) => (it.id === id ? { ...it, ...patch } : it)));
+  const addItem = () => setItems([...items, emptyPurchaseItem()]);
+  const removeItem = (id) => items.length > 1 && setItems(items.filter((it) => it.id !== id));
+
+  const subtotal = items.reduce((s, it) => s + (parseFloat(it.qty) || 0) * (parseFloat(it.price) || 0), 0);
+  const iva = subtotal * (settings.ivaRate / 100);
+  const total = subtotal + iva;
+
+  const create = async () => {
+    setError("");
+    if (!provider.name.trim() || !provider.nit.trim()) return setError("Completa nombre y NIT/CC del proveedor.");
+    if (!expenseAccount) return setError("Selecciona la cuenta de gasto o costo.");
+    if (items.some((it) => !it.desc.trim() || !it.qty || !it.price)) return setError("Completa todos los ítems.");
+    setBusy(true);
+    try {
+      await onCreatePurchase({
+        date, provider: { ...provider }, paymentType, expenseAccount,
+        items: items.map((it) => ({ desc: it.desc, qty: parseFloat(it.qty), price: parseFloat(it.price) })),
+        subtotal, iva, total,
+      });
+      setProvider({ name: "", nit: "" });
+      setExpenseAccount("");
+      setItems([emptyPurchaseItem()]);
+    } catch (e) {
+      setError(e.message || "No se pudo registrar la compra/gasto.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const post = async (p) => {
+    setPostingId(p.id);
+    try {
+      await onPostPurchase(p);
+    } catch (e) {
+      setError(e.message || "No se pudo contabilizar.");
+    } finally {
+      setPostingId(null);
+    }
+  };
+
+  return (
+    <div className="stack-lg">
+      <Card title="Nueva compra / gasto">
+        {thirdParties.length > 0 && (
+          <div className="form-row">
+            <select className="input" onChange={(e) => {
+              const tp = thirdParties.find((t) => t.id === e.target.value);
+              if (tp) setProvider({ name: tp.name, nit: tp.nit });
+            }} defaultValue="">
+              <option value="">Proveedor guardado…</option>
+              {thirdParties.filter((t) => t.type !== "cliente").map((t) => (
+                <option key={t.id} value={t.id}>{t.name} · {t.nit}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div className="form-row">
+          <input className="input" placeholder="Nombre o razón social del proveedor" value={provider.name}
+            onChange={(e) => setProvider({ ...provider, name: e.target.value })} />
+          <input className="input input-sm" placeholder="NIT / Cédula" value={provider.nit}
+            onChange={(e) => setProvider({ ...provider, nit: e.target.value })} />
+          <input type="date" className="input input-sm" value={date} onChange={(e) => setDate(e.target.value)} />
+          <select className="input input-sm" value={paymentType} onChange={(e) => setPaymentType(e.target.value)}>
+            <option value="credito">Crédito</option>
+            <option value="contado">Contado</option>
+          </select>
+        </div>
+        <div className="form-row">
+          <select className="input" value={expenseAccount} onChange={(e) => setExpenseAccount(e.target.value)}>
+            <option value="">Cuenta de gasto o costo…</option>
+            {expenseAccounts.map((a) => <option key={a.code} value={a.code}>{a.code} · {a.name}</option>)}
+          </select>
+        </div>
+
+        <table className="ledger-table entry-table">
+          <thead><tr><th>Descripción</th><th className="text-right">Cant.</th><th className="text-right">Precio</th><th className="text-right">Subtotal</th><th></th></tr></thead>
+          <tbody>
+            {items.map((it) => (
+              <tr key={it.id}>
+                <td><input className="input" placeholder="Producto o servicio" value={it.desc} onChange={(e) => updateItem(it.id, { desc: e.target.value })} /></td>
+                <td><input className="input input-sm text-right mono" type="number" min="0" value={it.qty} onChange={(e) => updateItem(it.id, { qty: e.target.value })} /></td>
+                <td><input className="input input-sm text-right mono" type="number" min="0" value={it.price} onChange={(e) => updateItem(it.id, { price: e.target.value })} /></td>
+                <td className="text-right mono">{fmtCOP((parseFloat(it.qty) || 0) * (parseFloat(it.price) || 0))}</td>
+                <td><button className="icon-btn" onClick={() => removeItem(it.id)} disabled={items.length <= 1}><Trash2 size={14} /></button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <button className="btn btn-ghost btn-sm" onClick={addItem}><Plus size={14} /> Ítem</button>
+
+        <div className="invoice-totals">
+          <div><span>Subtotal</span><span className="mono">{fmtCOP(subtotal)}</span></div>
+          <div><span>IVA ({settings.ivaRate}%)</span><span className="mono">{fmtCOP(iva)}</span></div>
+          <div className="invoice-total-final"><span>Total</span><span className="mono">{fmtCOP(total)}</span></div>
+        </div>
+
+        {error && <p className="error-text"><AlertTriangle size={14} /> {error}</p>}
+        <div className="entry-footer">
+          <span />
+          <button className="btn btn-primary" onClick={create} disabled={busy}>
+            {busy ? <Loader2 size={16} className="spin" /> : <><ShoppingBag size={16} /> Registrar</>}
+          </button>
+        </div>
+      </Card>
+
+      <Card title="Compras y gastos">
+        {purchases.length === 0 ? (
+          <EmptyState icon={ShoppingBag} title="Aún no has registrado compras o gastos" />
+        ) : (
+          <table className="ledger-table">
+            <thead><tr><th>N.º</th><th>Fecha</th><th>Proveedor</th><th className="text-right">Total</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+              {[...purchases].reverse().map((p) => (
+                <tr key={p.id}>
+                  <td className="mono">{String(p.number).padStart(4, "0")}</td>
+                  <td>{fmtDate(p.date)}</td>
+                  <td>{p.provider.name}</td>
+                  <td className="text-right mono">{fmtCOP(p.total)}</td>
+                  <td><span className={`badge ${p.status === "contabilizada" ? "badge-green" : "badge-gray"}`}>{p.status}</span></td>
+                  <td className="row-actions">
+                    {p.status === "borrador" && (
+                      <button className="btn btn-ghost btn-xs" onClick={() => post(p)} disabled={postingId === p.id}>
+                        {postingId === p.id ? <Loader2 size={12} className="spin" /> : "Contabilizar"}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+    </div>
+  );
+}
 /* ───────────────────────── Ajustes ───────────────────────── */
 
 function SettingsPanel({ settings, onUpdate, voucherTypes, onAddVoucherType, onRemoveVoucherType }) {
@@ -1031,6 +1183,7 @@ const TABS = [
   { id: "dashboard", label: "Resumen", icon: LayoutDashboard, group: "Inicio" },
   { id: "invoicing", label: "Facturación", icon: Receipt, group: "Ventas" },
   { id: "thirdparties", label: "Terceros", icon: Users, group: "Ventas" },
+  { id: "purchases", label: "Compras y gastos", icon: ShoppingBag, group: "Compras" },
   { id: "accounts", label: "Plan de cuentas", icon: Landmark, group: "Contabilidad" },
   { id: "entries", label: "Comprobantes", icon: ScrollText, group: "Contabilidad" },
   { id: "ledger", label: "Libro mayor", icon: BookOpen, group: "Contabilidad" },
@@ -1039,14 +1192,14 @@ const TABS = [
   { id: "settings", label: "Ajustes", icon: Settings2, group: "Configuración" },
 ];
 
-const GROUPS = ["Inicio", "Ventas", "Contabilidad", "Configuración"];
+const GROUPS = ["Inicio", "Ventas", "Compras", "Contabilidad", "Configuración"];
 
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = todavía no se sabe
   const [company, setCompany] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [entries, setEntries] = useState([]);
-  const [invoices, setInvoices] = useState([]);   const [voucherTypes, setVoucherTypes] = useState([]); const [thirdParties, setThirdParties] = useState([]); const [createOpen, setCreateOpen] = useState(false);
+  const [invoices, setInvoices] = useState([]);   const [voucherTypes, setVoucherTypes] = useState([]); const [thirdParties, setThirdParties] = useState([]);  const [purchases, setPurchases] = useState([]); const [createOpen, setCreateOpen] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
   const [dataError, setDataError] = useState("");
   const [tab, setTab] = useState("dashboard");
@@ -1058,10 +1211,10 @@ export default function App() {
   }, []);
 
   const reloadAll = async (companyId) => {
-    const [acc, ent, inv, vt, tp] = await Promise.all([
-      fetchAccounts(companyId), fetchEntries(companyId), fetchInvoices(companyId), fetchVoucherTypes(companyId), fetchThirdParties(companyId),
+    const [acc, ent, inv, vt, tp, pu] = await Promise.all([
+      fetchAccounts(companyId), fetchEntries(companyId), fetchInvoices(companyId), fetchVoucherTypes(companyId), fetchThirdParties(companyId), fetchPurchases(companyId),
     ]);
-    setAccounts(acc); setEntries(ent); setInvoices(inv); setVoucherTypes(vt); setThirdParties(tp);
+    setAccounts(acc); setEntries(ent); setInvoices(inv); setVoucherTypes(vt); setThirdParties(tp); setPurchases(pu);
   };
   
   const loadEverything = async () => {
@@ -1121,6 +1274,32 @@ export default function App() {
 
   const handleRemoveThirdParty = async (id) => {
     await deleteThirdParty(company.id, id);
+    await reloadAll(company.id);
+  };
+
+  
+  const handleCreatePurchase = async (draft) => {
+    const number = purchases.length ? Math.max(...purchases.map((p) => p.number)) + 1 : 1;
+    await insertPurchase(company.id, { ...draft, number });
+    await reloadAll(company.id);
+  };
+
+  const handlePostPurchase = async (purchase) => {
+    const egresoType = voucherTypes.find((t) => t.prefix === "CE") || voucherTypes[0];
+    const sameType = entries.filter((e) => e.voucherTypeId === egresoType?.id);
+    const number = sameType.length ? Math.max(...sameType.map((e) => e.number)) + 1 : 1;
+    const creditAccount = purchase.paymentType === "contado" ? "1105" : "2205";
+    const lines = [
+      { accountCode: purchase.expenseAccount, debit: purchase.subtotal, credit: 0 },
+      ...(purchase.iva > 0 ? [{ accountCode: "1355", debit: purchase.iva, credit: 0 }] : []),
+      { accountCode: creditAccount, debit: 0, credit: purchase.total },
+    ];
+    const entryId = await insertEntry(company.id, {
+      number, voucherTypeId: egresoType?.id, date: purchase.date,
+      description: `Compra/gasto N.º ${purchase.number} — ${purchase.provider.name}`,
+      lines,
+    });
+    await markPurchasePosted(purchase.id, entryId);
     await reloadAll(company.id);
   };
 
@@ -1208,6 +1387,10 @@ export default function App() {
                   <button className="create-menu-item" onClick={() => { setTab("invoicing"); setCreateOpen(false); }}>
                     <Receipt size={14} /> Factura de venta
                   </button>
+                  <div className="create-menu-label">Compras</div>
+                  <button className="create-menu-item" onClick={() => { setTab("purchases"); setCreateOpen(false); }}>
+                    <ShoppingBag size={14} /> Compra / gasto
+                  </button>
                   <div className="create-menu-label">Contabilidad</div>
                   <button className="create-menu-item" onClick={() => { setTab("entries"); setCreateOpen(false); }}>
                     <ScrollText size={14} /> Comprobante contable
@@ -1229,6 +1412,9 @@ export default function App() {
           {tab === "statements" && <FinancialStatements accounts={accounts} entries={entries} />}
                     {tab === "thirdparties" && (
             <ThirdParties thirdParties={thirdParties} onAdd={handleAddThirdParty} onRemove={handleRemoveThirdParty} />
+          )}
+                    {tab === "purchases" && (
+            <Purchases accounts={accounts} thirdParties={thirdParties} purchases={purchases} settings={settings} onCreatePurchase={handleCreatePurchase} onPostPurchase={handlePostPurchase} />
           )}
           {tab === "invoicing" && (
             <Invoicing entries={entries} invoices={invoices} settings={settings} thirdParties={thirdParties} onCreateInvoice={handleCreateInvoice} onPostInvoice={handlePostInvoice} />

@@ -4,6 +4,7 @@ import {
   Plus, Trash2, Printer, X, Check, AlertTriangle, Search, Settings2,
   Landmark, ChevronRight, Loader2, LogOut, Users, ShoppingBag
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import { supabase } from "./lib/supabaseClient";
 import Auth from "./Auth";
 import {

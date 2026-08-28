@@ -577,9 +577,19 @@ function Ledger({ accounts, entries }) {
     return { ...m, running };
   });
 
+  const exportExcel = () => {
+    const exportRows = rows.map((m) => ({
+      Fecha: fmtDate(m.date), Comprobante: `#${String(m.entryNo).padStart(4, "0")}`,
+      Descripción: m.description, Débito: m.debit, Crédito: m.credit, Saldo: m.running,
+    }));
+    exportToExcel(`libro-mayor-${account?.code || ""}`, [{ name: account?.name || "Libro mayor", rows: exportRows }]);
+  };
+
   return (
     <div className="stack-lg">
-      <Card title="Libro mayor por cuenta">
+      <Card title="Libro mayor por cuenta" right={rows.length > 0 ? (
+        <button className="btn btn-ghost btn-sm" onClick={exportExcel}><Download size={14} /> Excel</button>
+      ) : null}>
         {withMovement.length === 0 ? (
           <EmptyState icon={BookOpen} title="Todavía no hay movimientos" hint="Registra comprobantes en la sección Comprobantes." />
         ) : (

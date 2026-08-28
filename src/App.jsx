@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   LayoutDashboard, BookOpen, ScrollText, Scale, FileText, Receipt,
   Plus, Trash2, Printer, X, Check, AlertTriangle, Search, Settings2,
-  Landmark, ChevronRight, Loader2, LogOut, Users, ShoppingBag
+  Landmark, ChevronRight, Loader2, LogOut, Users, ShoppingBag, Download
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { supabase } from "./lib/supabaseClient";
@@ -29,6 +29,14 @@ const fmtCOP = (n) =>
   new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(
     Number.isFinite(n) ? n : 0
   );
+function exportToExcel(filename, sheets) {
+  const wb = XLSX.utils.book_new();
+  sheets.forEach(({ name, rows }) => {
+    const ws = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 31));
+  });
+  XLSX.writeFile(wb, `${filename}.xlsx`);
+}
 const fmtDate = (iso) => {
   if (!iso) return "";
   const [y, m, d] = iso.split("-");
@@ -608,8 +616,17 @@ function TrialBalance({ accounts, entries }) {
   const totalDebit = fin.withMovement.reduce((s, r) => s + r.totalDebit, 0);
   const totalCredit = fin.withMovement.reduce((s, r) => s + r.totalCredit, 0);
 
+  const exportExcel = () => {
+    const rows = fin.withMovement.sort((a, b) => a.code.localeCompare(b.code)).map((r) => ({
+      Código: r.code, Cuenta: r.name, Débitos: r.totalDebit, Créditos: r.totalCredit, Saldo: r.balance,
+    }));
+    exportToExcel("balance-de-prueba", [{ name: "Balance de prueba", rows }]);
+  };
+
   return (
-    <Card title="Balance de comprobación">
+    <Card title="Balance de comprobación" right={fin.withMovement.length > 0 ? (
+      <button className="btn btn-ghost btn-sm" onClick={exportExcel}><Download size={14} /> Excel</button>
+    ) : null}>
       {fin.withMovement.length === 0 ? (
         <EmptyState icon={Scale} title="No hay saldos que mostrar aún" />
       ) : (

@@ -677,9 +677,38 @@ function FinancialStatements({ accounts, entries }) {
   const fin = useFinancials(accounts, entries);
   const section = (cls) => fin.byClass[cls].sort((a, b) => a.code.localeCompare(b.code));
 
+  const exportExcel = () => {
+    const balanceRows = [
+      ...section("1").map((a) => ({ Sección: "Activo", Cuenta: a.name, Saldo: a.balance })),
+      { Sección: "Activo", Cuenta: "TOTAL ACTIVO", Saldo: fin.activo },
+      ...section("2").map((a) => ({ Sección: "Pasivo", Cuenta: a.name, Saldo: a.balance })),
+      { Sección: "Pasivo", Cuenta: "TOTAL PASIVO", Saldo: fin.pasivo },
+      ...section("3").map((a) => ({ Sección: "Patrimonio", Cuenta: a.name, Saldo: a.balance })),
+      { Sección: "Patrimonio", Cuenta: "Resultado del ejercicio", Saldo: fin.utilidad },
+      { Sección: "Patrimonio", Cuenta: "TOTAL PATRIMONIO", Saldo: fin.patrimonio + fin.utilidad },
+    ];
+    const resultRows = [
+      ...section("4").map((a) => ({ Sección: "Ingresos", Cuenta: a.name, Saldo: a.balance })),
+      { Sección: "Ingresos", Cuenta: "TOTAL INGRESOS", Saldo: fin.ingresos },
+      ...section("6").map((a) => ({ Sección: "Costos", Cuenta: a.name, Saldo: -a.balance })),
+      ...section("5").map((a) => ({ Sección: "Gastos", Cuenta: a.name, Saldo: -a.balance })),
+      { Sección: "Resultado", Cuenta: fin.utilidad >= 0 ? "UTILIDAD NETA" : "PÉRDIDA NETA", Saldo: fin.utilidad },
+    ];
+    exportToExcel("estados-financieros", [
+      { name: "Balance general", rows: balanceRows },
+      { name: "Estado de resultados", rows: resultRows },
+    ]);
+  };
+
   return (
-    <div className="two-col">
+    <div className="stack-lg">
+      <div className="entry-footer">
+        <span />
+        <button className="btn btn-ghost btn-sm" onClick={exportExcel}><Download size={14} /> Excel</button>
+      </div>
+      <div className="two-col">
       <Card title="Balance general">
+        </div>
         <p className="statement-label">Activo</p>
         {section("1").map((a) => (
           <div className="statement-row" key={a.code}><span>{a.name}</span><Money value={a.balance} /></div>

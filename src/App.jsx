@@ -708,7 +708,6 @@ function FinancialStatements({ accounts, entries }) {
       </div>
       <div className="two-col">
       <Card title="Balance general">
-        </div>
         <p className="statement-label">Activo</p>
         {section("1").map((a) => (
           <div className="statement-row" key={a.code}><span>{a.name}</span><Money value={a.balance} /></div>

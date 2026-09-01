@@ -754,10 +754,11 @@ function FinancialStatements({ accounts, entries }) {
           <div className="statement-row" key={a.code}><span>{a.name}</span><Money value={-a.balance} /></div>
         ))}
 
-        <div className={`statement-row statement-total ${fin.utilidad >= 0 ? "text-ink-green" : "text-ink-red"}`}>
+                <div className={`statement-row statement-total ${fin.utilidad >= 0 ? "text-ink-green" : "text-ink-red"}`}>
           <span>{fin.utilidad >= 0 ? "Utilidad neta" : "Pérdida neta"}</span><Money value={fin.utilidad} />
         </div>
       </Card>
+    </div>
     </div>
   );
 }

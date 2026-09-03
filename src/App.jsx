@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   LayoutDashboard, BookOpen, ScrollText, Scale, FileText, Receipt,
   Plus, Trash2, Printer, X, Check, AlertTriangle, Search, Settings2,
-  Landmark, ChevronRight, Loader2, LogOut, Users, ShoppingBag, Download
+  Landmark, ChevronRight, Loader2, LogOut, Users, ShoppingBag, Download, Calculator
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { supabase } from "./lib/supabaseClient";
@@ -1246,10 +1246,11 @@ const TABS = [
   { id: "ledger", label: "Libro mayor", icon: BookOpen, group: "Contabilidad" },
   { id: "trial", label: "Balance de prueba", icon: Scale, group: "Contabilidad" },
   { id: "statements", label: "Estados financieros", icon: FileText, group: "Contabilidad" },
+  { id: "taxes", label: "Formularios DIAN", icon: Calculator, group: "Impuestos" },
   { id: "settings", label: "Ajustes", icon: Settings2, group: "Configuración" },
 ];
 
-const GROUPS = ["Inicio", "Ventas", "Compras", "Contabilidad", "Configuración"];
+const GROUPS = ["Inicio", "Ventas", "Compras", "Contabilidad", "Impuestos", "Configuración"];
 
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = todavía no se sabe

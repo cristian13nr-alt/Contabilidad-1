@@ -1107,6 +1107,89 @@ function Purchases({ accounts, thirdParties, purchases, settings, onCreatePurcha
     </div>
   );
 }
+/* ───────────────────────── Formularios DIAN ───────────────────────── */
+
+function TaxForms({ entries, invoices, purchases }) {
+  const today = todayISO();
+  const firstOfMonth = today.slice(0, 8) + "01";
+  const [from, setFrom] = useState(firstOfMonth);
+  const [to, setTo] = useState(today);
+
+  const inRange = (dateStr) => dateStr >= from && dateStr <= to;
+
+  const invoicesInRange = invoices.filter((i) => i.status === "contabilizada" && inRange(i.date));
+  const purchasesInRange = purchases.filter((p) => p.status === "contabilizada" && inRange(p.date));
+
+  const ivaGenerado = invoicesInRange.reduce((s, i) => s + i.iva, 0);
+  const ivaDescontable = purchasesInRange.reduce((s, p) => s + p.iva, 0);
+  const ivaAPagar = ivaGenerado - ivaDescontable;
+
+  const retencionPracticada = invoicesInRange.reduce((s, i) => s + (i.retencionValue || 0), 0);
+
+  const ventasBrutas = invoicesInRange.reduce((s, i) => s + i.subtotal, 0);
+  const comprasBrutas = purchasesInRange.reduce((s, p) => s + p.subtotal, 0);
+
+  const exportExcel = () => {
+    const form300 = [
+      { Concepto: "Ventas gravadas (base)", Valor: ventasBrutas },
+      { Concepto: "IVA generado en ventas", Valor: ivaGenerado },
+      { Concepto: "Compras gravadas (base)", Valor: comprasBrutas },
+      { Concepto: "IVA descontable en compras", Valor: ivaDescontable },
+      { Concepto: "IVA a pagar (o saldo a favor si es negativo)", Valor: ivaAPagar },
+    ];
+    const form350 = [
+      { Concepto: "Total facturado en el periodo", Valor: ventasBrutas },
+      { Concepto: "Retención en la fuente practicada por clientes", Valor: retencionPracticada },
+    ];
+    const detalle = invoicesInRange.map((i) => ({
+      Factura: String(i.number).padStart(4, "0"), Fecha: fmtDate(i.date), Cliente: i.client.name,
+      Subtotal: i.subtotal, IVA: i.iva, Retención: i.retencionValue || 0, Total: i.total,
+    }));
+    exportToExcel(`dian-${from}_a_${to}`, [
+      { name: "Formulario 300 (IVA)", rows: form300 },
+      { name: "Formulario 350 (Retención)", rows: form350 },
+      { name: "Detalle facturas", rows: detalle },
+    ]);
+  };
+
+  return (
+    <div className="stack-lg">
+      <div className="dian-note">
+        <AlertTriangle size={16} />
+        <span>Estos valores se calculan a partir de tus comprobantes contabilizados. Revísalos con tu contador antes de presentarlos — esto no transmite nada directamente a la DIAN.</span>
+      </div>
+
+      <Card title="Periodo a calcular">
+        <div className="form-row">
+          <label className="hint-text">Desde <input type="date" className="input input-sm" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+          <label className="hint-text">Hasta <input type="date" className="input input-sm" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+          <button className="btn btn-ghost btn-sm" onClick={exportExcel}><Download size={14} /> Exportar Excel</button>
+        </div>
+      </Card>
+
+      <div className="two-col">
+        <Card title="Formulario 300 · IVA">
+          <div className="statement-row"><span>Ventas gravadas (base)</span><Money value={ventasBrutas} /></div>
+          <div className="statement-row"><span>IVA generado en ventas</span><Money value={ivaGenerado} /></div>
+          <div className="statement-row" style={{ marginTop: 10 }}><span>Compras gravadas (base)</span><Money value={comprasBrutas} /></div>
+          <div className="statement-row"><span>IVA descontable en compras</span><Money value={ivaDescontable} /></div>
+          <div className={`statement-row statement-total ${ivaAPagar >= 0 ? "text-ink-red" : "text-ink-green"}`}>
+            <span>{ivaAPagar >= 0 ? "IVA a pagar" : "Saldo a favor"}</span>
+            <Money value={Math.abs(ivaAPagar)} />
+          </div>
+        </Card>
+
+        <Card title="Formulario 350 · Retención en la fuente">
+          <div className="statement-row"><span>Total facturado en el periodo</span><Money value={ventasBrutas} /></div>
+          <div className="statement-row statement-total"><span>Retención que te practicaron</span><Money value={retencionPracticada} /></div>
+          <p className="empty-hint" style={{ marginTop: 14 }}>
+            Este valor es la retención que tus clientes te descontaron al pagarte — se declara como anticipo de tus propios impuestos, no como algo que tú debes pagar aparte.
+          </p>
+        </Card>
+      </div>
+    </div>
+  );
+}
 /* ───────────────────────── Ajustes ───────────────────────── */
 
 function SettingsPanel({ settings, onUpdate, voucherTypes, onAddVoucherType, onRemoveVoucherType }) {

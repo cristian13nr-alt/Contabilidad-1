@@ -1477,7 +1477,9 @@ export default function App() {
           {tab === "invoicing" && (
             <Invoicing entries={entries} invoices={invoices} settings={settings} thirdParties={thirdParties} onCreateInvoice={handleCreateInvoice} onPostInvoice={handlePostInvoice} />
           )}
-          {tab === "settings" && (
+          {tab === "taxes" && (
+            <TaxForms accounts={accounts} entries={entries} invoices={invoices} purchases={purchases} />
+          )}
             <SettingsPanel
               settings={settings}
               onUpdate={handleUpdateSettings}

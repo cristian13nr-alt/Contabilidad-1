@@ -1564,9 +1564,8 @@ export default function App() {
             <TaxForms accounts={accounts} entries={entries} invoices={invoices} purchases={purchases} />
           )}
           {tab === "settings" && (
-            <SettingsPanel
-            <SettingsPanel
-              settings={settings}
+              <SettingsPanel
+                settings={settings}
               onUpdate={handleUpdateSettings}
               voucherTypes={voucherTypes}
               onAddVoucherType={handleAddVoucherType}

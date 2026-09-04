@@ -767,6 +767,7 @@ function FinancialStatements({ accounts, entries }) {
 function emptyItem() { return { id: uid(), desc: "", qty: 1, price: "" }; }
 
 function Invoicing({ entries, invoices, settings, thirdParties, onCreateInvoice, onPostInvoice }) {
+  const [query, setQuery] = useState("");
   const [client, setClient] = useState({ name: "", nit: "" });
   const [date, setDate] = useState(todayISO());
   const [paymentType, setPaymentType] = useState("credito");
@@ -885,8 +886,20 @@ function Invoicing({ entries, invoices, settings, thirdParties, onCreateInvoice,
         </div>
       </Card>
 
-      <Card title="Facturas">
-        {invoices.length === 0 ? (
+      <Card
+        title="Facturas"
+        right={
+          <div className="search-box">
+            <Search size={14} />
+            <input placeholder="Buscar por cliente o N.º…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          </div>
+        }
+      >
+        {(() => {
+          const filteredInvoices = invoices.filter((inv) =>
+            inv.client.name.toLowerCase().includes(query.toLowerCase()) || String(inv.number).includes(query)
+          );
+          return filteredInvoices.length === 0 ? (
           <EmptyState icon={Receipt} title="Aún no has emitido facturas" />
         ) : (
           <table className="ledger-table">

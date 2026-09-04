@@ -1563,6 +1563,8 @@ export default function App() {
           {tab === "taxes" && (
             <TaxForms accounts={accounts} entries={entries} invoices={invoices} purchases={purchases} />
           )}
+          {tab === "settings" && (
+            <SettingsPanel
             <SettingsPanel
               settings={settings}
               onUpdate={handleUpdateSettings}

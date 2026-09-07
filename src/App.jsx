@@ -1111,7 +1111,7 @@ function Purchases({ accounts, thirdParties, purchases, settings, onCreatePurcha
           <table className="ledger-table">
             <thead><tr><th>N.º</th><th>Fecha</th><th>Proveedor</th><th className="text-right">Total</th><th>Estado</th><th></th></tr></thead>
             <tbody>
-              {[...purchases].reverse().map((p) => (
+              {[...filteredPurchases].reverse().map((p) => (
                 <tr key={p.id}>
                   <td className="mono">{String(p.number).padStart(4, "0")}</td>
                   <td>{fmtDate(p.date)}</td>
@@ -1129,7 +1129,8 @@ function Purchases({ accounts, thirdParties, purchases, settings, onCreatePurcha
               ))}
             </tbody>
           </table>
-        )}
+           );
+        })()}
       </Card>
     </div>
   );

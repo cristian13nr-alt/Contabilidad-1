@@ -905,7 +905,7 @@ function Invoicing({ entries, invoices, settings, thirdParties, onCreateInvoice,
           <table className="ledger-table">
             <thead><tr><th>N.º</th><th>Fecha</th><th>Cliente</th><th className="text-right">Total</th><th>Estado</th><th></th></tr></thead>
             <tbody>
-              {[...invoices].reverse().map((inv) => (
+              {[...filteredInvoices].reverse().map((inv) => (
                 <tr key={inv.id}>
                   <td className="mono">{String(inv.number).padStart(4, "0")}</td>
                   <td>{fmtDate(inv.date)}</td>
@@ -924,7 +924,8 @@ function Invoicing({ entries, invoices, settings, thirdParties, onCreateInvoice,
               ))}
             </tbody>
           </table>
-        )}
+           );
+         })()}
       </Card>
 
       {printing && (

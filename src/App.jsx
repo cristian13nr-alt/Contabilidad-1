@@ -974,6 +974,7 @@ function Invoicing({ entries, invoices, settings, thirdParties, onCreateInvoice,
 function emptyPurchaseItem() { return { id: uid(), desc: "", qty: 1, price: "" }; }
 
 function Purchases({ accounts, thirdParties, purchases, settings, onCreatePurchase, onPostPurchase }) {
+  const [query, setQuery] = useState("");
   const [provider, setProvider] = useState({ name: "", nit: "" });
   const [date, setDate] = useState(todayISO());
   const [paymentType, setPaymentType] = useState("credito");
@@ -1091,8 +1092,20 @@ function Purchases({ accounts, thirdParties, purchases, settings, onCreatePurcha
         </div>
       </Card>
 
-      <Card title="Compras y gastos">
-        {purchases.length === 0 ? (
+      <Card
+        title="Compras y gastos"
+        right={
+          <div className="search-box">
+            <Search size={14} />
+            <input placeholder="Buscar por proveedor o N.º…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          </div>
+        }
+      >
+        {(() => {
+          const filteredPurchases = purchases.filter((p) =>
+            p.provider.name.toLowerCase().includes(query.toLowerCase()) || String(p.number).includes(query)
+          );
+          return filteredPurchases.length === 0 ? (
           <EmptyState icon={ShoppingBag} title="Aún no has registrado compras o gastos" />
         ) : (
           <table className="ledger-table">

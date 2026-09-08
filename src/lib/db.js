@@ -100,6 +100,21 @@ export async function deleteThirdParty(companyId, id) {
   const { error } = await supabase.from("third_parties").delete().eq("company_id", companyId).eq("id", id);
   if (error) throw error;
 }
+
+export async function updateThirdParty(companyId, id, patch) {
+  const { error } = await supabase
+    .from("third_parties")
+    .update({
+      name: patch.name,
+      nit: patch.nit,
+      type: patch.type,
+      email: patch.email || null,
+      phone: patch.phone || null,
+    })
+    .eq("company_id", companyId)
+    .eq("id", id);
+  if (error) throw error;
+}
 export async function fetchEntries(companyId) {
   const { data, error } = await supabase
     .from("journal_entries")

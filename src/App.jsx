@@ -12,7 +12,7 @@ import {
   fetchAccounts, insertAccount, deleteAccount,
   fetchEntries, insertEntry,
   fetchInvoices, insertInvoice, markInvoicePosted, fetchVoucherTypes, insertVoucherType, deleteVoucherType,
-  fetchThirdParties, insertThirdParty, updateThirdParty, deleteThirdParty,
+  fetchThirdParties, insertThirdParty, updateThirdParty, deleteThirdParty, updateThirdParty
   fetchPurchases, insertPurchase, markPurchasePosted,
 } from "./lib/db";
 

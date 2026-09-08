@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   LayoutDashboard, BookOpen, ScrollText, Scale, FileText, Receipt,
   Plus, Trash2, Printer, X, Check, AlertTriangle, Search, Settings2,
-  Landmark, ChevronRight, Loader2, LogOut, Users, ShoppingBag, Download, Calculator
+  Landmark, ChevronRight, Loader2, LogOut, Users, ShoppingBag, Download, Calculator, Pencil
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { supabase } from "./lib/supabaseClient";
@@ -12,7 +12,7 @@ import {
   fetchAccounts, insertAccount, deleteAccount,
   fetchEntries, insertEntry,
   fetchInvoices, insertInvoice, markInvoicePosted, fetchVoucherTypes, insertVoucherType, deleteVoucherType,
-  fetchThirdParties, insertThirdParty, deleteThirdParty,
+  fetchThirdParties, insertThirdParty, updateThirdParty, deleteThirdParty,
   fetchPurchases, insertPurchase, markPurchasePosted,
 } from "./lib/db";
 
@@ -1446,6 +1446,11 @@ export default function App() {
     await reloadAll(company.id);
   };
 
+  const handleUpdateThirdParty = async (id, patch) => {
+    await updateThirdParty(company.id, id, patch);
+    await reloadAll(company.id);
+  };
+
   
   const handleCreatePurchase = async (draft) => {
     const number = purchases.length ? Math.max(...purchases.map((p) => p.number)) + 1 : 1;
@@ -1580,7 +1585,7 @@ export default function App() {
           {tab === "trial" && <TrialBalance accounts={accounts} entries={entries} />}
           {tab === "statements" && <FinancialStatements accounts={accounts} entries={entries} />}
                     {tab === "thirdparties" && (
-            <ThirdParties thirdParties={thirdParties} onAdd={handleAddThirdParty} onRemove={handleRemoveThirdParty} />
+            <ThirdParties thirdParties={thirdParties} onAdd={handleAddThirdParty} onUpdate={handleUpdateThirdParty} onRemove={handleRemoveThirdParty} />
           )}
                     {tab === "purchases" && (
             <Purchases accounts={accounts} thirdParties={thirdParties} purchases={purchases} settings={settings} onCreatePurchase={handleCreatePurchase} onPostPurchase={handlePostPurchase} />

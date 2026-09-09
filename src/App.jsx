@@ -294,12 +294,16 @@ function ChartOfAccounts({ accounts, entries, onAdd, onRemove }) {
 
 function emptyThirdPartyForm() { return { name: "", nit: "", type: "cliente", email: "", phone: "" }; }
 
-function ThirdParties({ thirdParties, onAdd, onRemove }) {
+function ThirdParties({ thirdParties, onAdd, onUpdate, onRemove }) {
   const [form, setForm] = useState(emptyThirdPartyForm());
   const [query, setQuery] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState(null);
+  const [editBusy, setEditBusy] = useState(false);
+  const [editError, setEditError] = useState("");
 
   const filtered = thirdParties.filter((t) => {
     const matchesType = filterType === "all" || t.type === filterType || t.type === "ambos";
@@ -328,6 +332,37 @@ function ThirdParties({ thirdParties, onAdd, onRemove }) {
       await onRemove(id);
     } catch (e) {
       setError(e.message || "No se pudo eliminar (puede estar en uso).");
+    }
+  };
+
+  const startEdit = (t) => {
+    setEditingId(t.id);
+    setEditForm({ name: t.name, nit: t.nit, type: t.type, email: t.email || "", phone: t.phone || "" });
+    setEditError("");
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditForm(null);
+    setEditError("");
+  };
+
+  const saveEdit = async () => {
+    setEditError("");
+    if (!editForm.name.trim()) return setEditError("Escribe un nombre.");
+    if (!editForm.nit.trim()) return setEditError("Escribe el NIT o cédula.");
+    setEditBusy(true);
+    try {
+      await onUpdate(editingId, {
+        name: editForm.name.trim(), nit: editForm.nit.trim(), type: editForm.type,
+        email: editForm.email.trim(), phone: editForm.phone.trim(),
+      });
+      setEditingId(null);
+      setEditForm(null);
+    } catch (e) {
+      setEditError(e.message || "No se pudo guardar.");
+    } finally {
+      setEditBusy(false);
     }
   };
 
@@ -375,22 +410,50 @@ function ThirdParties({ thirdParties, onAdd, onRemove }) {
           </div>
         }
       >
+        {editError && <p className="error-text"><AlertTriangle size={14} /> {editError}</p>}
         <table className="ledger-table">
           <thead><tr><th>Nombre</th><th>NIT</th><th>Tipo</th><th>Contacto</th><th></th></tr></thead>
           <tbody>
-            {filtered.map((t) => (
-              <tr key={t.id}>
-                <td>{t.name}</td>
-                <td className="mono">{t.nit}</td>
-                <td>{typeLabel(t.type)}</td>
-                <td>{[t.email, t.phone].filter(Boolean).join(" · ") || "—"}</td>
-                <td className="text-right">
-                  <button className="icon-btn" title="Eliminar" onClick={() => remove(t.id)}>
-                    <Trash2 size={14} />
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {filtered.map((t) =>
+              editingId === t.id ? (
+                <tr key={t.id}>
+                  <td><input className="input" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></td>
+                  <td><input className="input input-sm" value={editForm.nit} onChange={(e) => setEditForm({ ...editForm, nit: e.target.value })} /></td>
+                  <td>
+                    <select className="input input-sm" value={editForm.type} onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}>
+                      <option value="cliente">Cliente</option>
+                      <option value="proveedor">Proveedor</option>
+                      <option value="ambos">Cliente y proveedor</option>
+                    </select>
+                  </td>
+                  <td>
+                    <input className="input input-sm" placeholder="Correo" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} style={{ marginBottom: 4 }} />
+                    <input className="input input-sm" placeholder="Teléfono" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
+                  </td>
+                  <td className="row-actions">
+                    <button className="btn btn-primary btn-xs" onClick={saveEdit} disabled={editBusy}>
+                      {editBusy ? <Loader2 size={12} className="spin" /> : "Guardar"}
+                    </button>
+                    <button className="btn btn-ghost btn-xs" onClick={cancelEdit}>Cancelar</button>
+                  </td>
+                </tr>
+              ) : (
+                <tr key={t.id}>
+                  <td>{t.name}</td>
+                  <td className="mono">{t.nit}</td>
+                  <td>{typeLabel(t.type)}</td>
+                  <td>{[t.email, t.phone].filter(Boolean).join(" · ") || "—"}</td>
+                  <td className="row-actions">
+                    <button className="icon-btn" title="Editar" onClick={() => startEdit(t)}>
+                      <Pencil size={14} />
+                    </button>
+                    <button className="icon-btn" title="Eliminar" onClick={() => remove(t.id)}>
+                      <Trash2 size={14} />
+                    </button>
+                  </td>
+                </tr>
+              )
+            )}
             {filtered.length === 0 && (
               <tr><td colSpan={5}><EmptyState icon={Users} title="Aún no tienes terceros registrados" /></td></tr>
             )}
@@ -400,6 +463,7 @@ function ThirdParties({ thirdParties, onAdd, onRemove }) {
     </div>
   );
 }
+
 /* ───────────────────────── Comprobantes / Partida doble ───────────────────────── */
 
 function emptyLine() { return { id: uid(), accountCode: "", debit: "", credit: "" }; }

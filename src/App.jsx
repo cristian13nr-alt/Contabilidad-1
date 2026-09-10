@@ -386,6 +386,9 @@ function ThirdParties({ thirdParties, onAdd, onUpdate, onRemove }) {
             onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <input className="input input-sm" placeholder="NIT / Cédula" value={form.nit}
             onChange={(e) => setForm({ ...form, nit: e.target.value })} />
+                    {/^\d{4,}$/.test(form.nit.replace(/\D/g, "")) && (
+            <span className="nature-pill">DV: {nitCheckDigit(form.nit)}</span>
+          )}
           {/^\d{4,}$/.test(form.nit.replace(/\D/g, "")) && (
             <span className="nature-pill">DV: {nitCheckDigit(form.nit)}</span>
           )}

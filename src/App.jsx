@@ -37,6 +37,16 @@ function exportToExcel(filename, sheets) {
   });
   XLSX.writeFile(wb, `${filename}.xlsx`);
 }
+
+function nitCheckDigit(nit) {
+  const digits = (nit || "").replace(/\D/g, "");
+  if (!digits) return "";
+  const weights = [3, 7, 13, 17, 19, 23, 29, 37, 41, 43, 47, 53, 59, 67, 71];
+  let sum = 0;
+  digits.split("").reverse().forEach((d, i) => { sum += Number(d) * (weights[i] || 0); });
+  const mod = sum % 11;
+  return String(mod > 1 ? 11 - mod : mod);
+}
 const fmtDate = (iso) => {
   if (!iso) return "";
   const [y, m, d] = iso.split("-");
